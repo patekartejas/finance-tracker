@@ -1,4 +1,4 @@
-# ₹ Finance Tracker v12
+# ₹ Finance Tracker
 
 Google Sheets export update:
 - One single CSV export: `finance_tracker_google_sheets.csv`
