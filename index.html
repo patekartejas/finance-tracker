@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#166534"><meta name="description" content="₹ INR personal finance and budget tracker">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg">
+<title>₹ Finance Tracker v12</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172018;background:#f5f7f5}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:14px}
+h1{margin:4px 0;font-size:25px}.muted{color:#68736a;font-size:13px}.grid{display:grid;gap:10px}.stats{grid-template-columns:repeat(4,1fr)}
+.card{background:#fff;border:1px solid #d9e0da;border-radius:16px;padding:15px;margin:10px 0}
+.value{font-size:22px;font-weight:800}.smallvalue{font-size:18px;font-weight:750}
+form{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}.field{display:flex;flex-direction:column;gap:5px;font-size:13px}
+input,select,button{font:inherit;padding:12px;min-height:44px;border:1px solid #cbd5cc;border-radius:10px;background:#fff}
+button{font-weight:650;cursor:pointer}.primary{background:#166534;color:#fff;border-color:#166534}
+button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4px 10px;min-height:36px;font-size:12px}
+.alloc{grid-template-columns:repeat(3,1fr)}.balancecards{grid-template-columns:repeat(3,1fr)}
+.box{background:#f7faf7;border:1px solid #e0e7e1;border-radius:13px;padding:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #e4e9e5}
+.balance{font-size:25px;font-weight:850;margin-top:4px}.red{color:#b42318!important}.green{color:#166534!important}
+.bar{height:10px;background:#e5e7eb;border-radius:20px;overflow:hidden;margin-top:6px}.fill{height:100%;background:#166534}
+.tabs{display:flex;gap:7px;flex-wrap:wrap}.tabs button.active{background:#dcfce7;border-color:#86efac}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.chartrow{display:grid;grid-template-columns:110px 1fr 90px;gap:7px;align-items:center;font-size:13px}.chartbar{height:14px;background:#e5e7eb;border-radius:20px;overflow:hidden}.chartfill{height:100%;background:#166534}.ptable{width:100%;border-collapse:collapse;font-size:13px}.ptable th,.ptable td{padding:8px;border-bottom:1px solid #e4e9e5;text-align:right}.ptable th:first-child,.ptable td:first-child{text-align:left}.notice{padding:10px 12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:13px}.warning{padding:10px 12px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;color:#b45309;font-size:13px;margin-bottom:10px}.periodtag{display:inline-block;padding:4px 8px;border-radius:8px;background:#eef2ff;font-size:12px}.over{background:#fef2f2;border:1px solid #fecaca}.under{background:#f0fdf4;border:1px solid #bbf7d0}.zero{background:#f8fafc;border:1px solid #e2e8f0}
+.btn-group{display:flex;gap:4px}
+@media(max-width:700px){.stats,.balancecards{grid-template-columns:1fr 1fr}.alloc{grid-template-columns:1fr 1fr}form{grid-template-columns:1fr 1fr}}
+@media(max-width:430px){form{grid-template-columns:1fr}.alloc,.balancecards{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main class="wrap">
+<h1>₹ Personal Finance Tracker v12</h1>
+<p class="muted">Monthly income → automatic daily/weekly/monthly allocation → disposable daily budgeting & tracking.</p>
+
+<section class="grid stats">
+<div class="card"><div class="muted">Total Income</div><div id="totalIncome" class="value">₹0</div></div>
+<div class="card"><div class="muted">Total Expenses</div><div id="totalExpenses" class="value">₹0</div></div>
+<div class="card"><div class="muted">Overall Balance</div><div id="overallBalance" class="value">₹0</div></div>
+<div class="card"><div class="muted">Savings</div><div id="savings" class="value">₹0</div></div>
+</section>
+
+<section class="card">
+<h2>💰 Monthly Income Resource</h2>
+<form id="incomeForm">
+<label class="field">Monthly Income (₹)<input id="incomeAmount" type="number" min="0" step="0.01" required placeholder="28500"></label>
+<label class="field">Month<input id="incomeMonth" type="month" required></label>
+<button class="primary" type="submit">Save Monthly Income</button>
+</form>
+<div id="allocation" class="grid alloc" style="margin-top:12px"></div>
+</section>
+
+<section class="card">
+<h2 id="formTitle">➕ Add Expense</h2>
+<form id="expenseForm">
+<input type="hidden" id="editExpenseId" value="">
+<label class="field">Amount (₹)<input id="expenseAmount" type="number" min="0.01" step="0.01" required placeholder="500"></label>
+<label class="field">Category<select id="category" required>
+<option value="Housing">Housing</option>
+<option value="Utilities">Utilities</option>
+<option value="Food">Food</option>
+<option value="Transportation">Transportation</option>
+<option value="Personal Care">Personal Care</option>
+<option value="Family Care">Family Care</option>
+<option value="Parents Care">Parents Care</option>
+<option value="Education">Education</option>
+<option value="Health Care">Health Care</option>
+<option value="Technology">Technology</option>
+<option value="Debt Payments">Debt Payments</option>
+<option value="Savings & Investments">Savings & Investments</option>
+<option value="Entertainment">Entertainment</option>
+<option value="Miscellaneous">Miscellaneous</option>
+<option value="Other">Other</option>
+</select></label>
+<label class="field">Subcategory<select id="subcategory"></select></label>
+<label class="field">Expense Type<select id="expenseType"><option value="Variable">Variable</option><option value="Fixed">Fixed</option></select></label>
+<label class="field">Date
+  <div style="display:flex;gap:4px">
+    <input id="expenseDate" type="date" style="flex:1" required>
+    <button type="button" class="secondary" id="setToday">Today</button>
+  </div>
+</label>
+<label class="field">Note<input id="note" maxlength="100" placeholder="Lunch"></label>
+<div style="display:flex;gap:6px;grid-column: span 2">
+  <button class="primary" id="saveExpenseBtn" type="submit" style="flex:1">Add Expense</button>
+  <button type="button" id="cancelEditBtn" class="secondary" style="display:none">Cancel</button>
+</div>
+</form>
+</section>
+
+<section class="card">
+<h2>🎯 Automatic Spending Limits & Balances</h2>
+<div id="incomeAlert"></div>
+<div class="notice">Daily, weekly and monthly balances are calculated independently. Disposable daily limit excludes committed fixed expenses (Rent, EMIs, Bills).</div>
+<div id="balances" class="grid balancecards" style="margin-top:12px"></div>
+</section>
+
+<section class="card">
+<div class="tabs" id="tabs"><button class="active" data-period="today">Daily</button><button data-period="week">Weekly</button><button data-period="month">Monthly</button><button data-period="year">Yearly</button></div>
+<h2>📒 Expense Ledger</h2><div id="periodTotal" class="value">₹0</div><div id="ledger"></div>
+</section>
+
+<section class="card">
+<h2>📊 Reports & Pivot-style Review</h2>
+<p class="muted">Interactive summaries from your saved expenses. Category totals are shown for the current month.</p>
+<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+  <div class="box"><h3>Expense by Category</h3><div id="catChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
+  <div class="box"><h3>Monthly Overview</h3><div id="monthChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
+</div>
+<div class="box" style="margin-top:12px"><h3>Pivot-style Summary</h3><div id="pivotTable"></div></div>
+</section>
+
+<section class="card">
+<div class="actions">
+<button id="export">⬇ Export Detailed CSV</button>
+<button id="exportSummary">⬇ Export Summary CSV</button>
+<button id="backup">Backup JSON</button><button id="restore">Restore JSON</button><button id="clear">Clear All</button>
+</div>
+<p class="muted">Detailed CSV includes every expense plus automatic daily, weekly and monthly allocation/balance fields, ready for Google Sheets pivot tables.</p>
+</section>
+</main>
+
+<script>
+const KEY="inr-finance-v12";
+let state=JSON.parse(localStorage.getItem(KEY)||'{"expenses":[],"income":{}}');
+let selectedPeriod="today";
+const $=id=>document.getElementById(id);
+const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const monthKey=(y,m)=>y+"-"+pad(m);
+const today=new Date();
+$("expenseDate").value=iso(today);
+$("incomeMonth").value=monthKey(today.getFullYear(),today.getMonth()+1);
+
+const CATEGORY_MAP={
+ "Housing":["Rent","Mortgage payments","Property taxes","Home insurance","Household maintenance","Home repairs"],
+ "Utilities":["Electricity","Water","Gas","Internet","Phone bills"],
+ "Food":["Groceries","Dining out","Restaurant meals","Takeaway / Delivery"],
+ "Transportation":["Public transit passes","Ride-sharing","Gas / Fuel","Car payments","Car insurance","Toll fees","Auto maintenance","Auto repairs","Tyres / Tire expenses","Vehicle registration"],
+ "Personal Care":["Clothing","Shoes","Toiletries","Haircuts & grooming","Laundry & dry cleaning","Skincare & cosmetics","Wellness / Spa"],
+ "Family Care":["Childcare / Daycare","School supplies & fees","Elder care","Pet food & supplies","Veterinary care","Pet insurance","Babysitting / Pet sitting"],
+ "Parents Care":["Dad - Insurance","Dad - Clothing","Dad - Medical","Dad - Medicines","Dad - Groceries","Dad - Utilities","Dad - Personal care","Dad - Gym / Fitness","Dad - Travel","Dad - Other","Mom - Insurance","Mom - Clothing","Mom - Medical","Mom - Medicines","Mom - Groceries","Mom - Utilities","Mom - Personal care","Mom - Gym / Fitness","Mom - Travel","Mom - Other","Parents - Gifts","Parents - Other"],
+ "Education":["Child Education","Child - School Fees","Child - Tuition / Coaching","Child - Books & Courses","Child - School Supplies","Child - School Transport","Child - Uniforms","Child - Exam Fees","College / University Fees","Tuition","Books & courses","Other education"],
+ "Health Care":["Health insurance","Prescription medicines","OTC medicines","Doctor / Specialist visits","Dental care","Vision care","Mental health","Gym / Fitness"],
+ "Technology":["Mobile plan","Phone / Device","Internet service","Computer hardware","Software","Streaming services","Gaming subscriptions","Tech accessories"],
+ "Debt Payments":["Credit card payments","Student loan","Personal loan","Medical debt","Mortgage loan","Other debt"],
+ "Savings & Investments":["Emergency fund","Retirement","Investment contribution","College / Education fund","Other long-term goal"],
+ "Entertainment":["Subscriptions","Movies","Concerts & events","Hobbies","Books & media","Vacation / Travel","Dining out / Ordering in"],
+ "Miscellaneous":["Gifts","Charitable donations","Professional dues / Memberships","Education / Professional development","Unexpected expense","Large purchase","Other"],
+ "Other":["Other"]
+};
+
+function populateSubcategories(){
+ const c=$("category").value, list=CATEGORY_MAP[c]||["Other"];
+ $("subcategory").innerHTML=list.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("");
+}
+$("category").addEventListener("change",populateSubcategories);
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
+
+function periodMatch(s,p){
+ const d=parseDate(s), n=new Date();
+ if(p==="today") return iso(d)===iso(n);
+ if(p==="month") return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth();
+ if(p==="year") return d.getFullYear()===n.getFullYear();
+ const start=new Date(n), dow=(n.getDay()+6)%7;
+ start.setDate(n.getDate()-dow); start.setHours(0,0,0,0);
+ const end=new Date(start); end.setDate(start.getDate()+7);
+ return d>=start&&d<end;
+}
+
+function periodMatchForDate(dateStr, period, refDate) {
+ const d = parseDate(dateStr);
+ if (period === "week") {
+   const start = new Date(refDate);
+   const dow = (refDate.getDay() + 6) % 7;
+   start.setDate(refDate.getDate() - dow);
+   start.setHours(0, 0, 0, 0);
+   const end = new Date(start);
+   end.setDate(start.getDate() + 7);
+   return d >= start && d < end;
+ }
+ return false;
+}
+
+function expenseSum(p){return state.expenses.filter(x=>periodMatch(x.date,p)).reduce((a,x)=>a+x.amount,0)}
+function monthIncome(y,m){return Number(state.income[monthKey(y,m)]||0)}
+
+function currentMonthData(){
+ const n=new Date(), y=n.getFullYear(), m=n.getMonth()+1, mi=monthIncome(y,m);
+ const ym=monthKey(y,m);
+ const days=new Date(y,m,0).getDate();
+ const daily=days?mi/days:0;
+ const monthExpenses=state.expenses.filter(x=>x.date.startsWith(ym));
+ const fixedExpenses=monthExpenses.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
+ const disposableIncome=Math.max(0, mi - fixedExpenses);
+ const disposableDaily=days?disposableIncome/days:0;
+ return {y,m,mi,days,daily,weekly:daily*7,fixedExpenses,disposableDaily};
+}
+
+function getPeriodStats(){
+ const cm=currentMonthData(), todayKey=iso(new Date());
+ const dailySpent=state.expenses.filter(x=>x.date===todayKey).reduce((a,x)=>a+x.amount,0);
+ const weeklySpent=expenseSum("week"), monthlySpent=expenseSum("month");
+ return {cm,dailySpent,weeklySpent,monthlySpent};
+}
+
+function render(){
+ const totalIncome=Object.values(state.income).reduce((a,x)=>a+Number(x||0),0);
+ const totalExpenses=state.expenses.reduce((a,x)=>a+x.amount,0);
+ const overall=totalIncome-totalExpenses;
+ $("totalIncome").textContent=money(totalIncome);$("totalExpenses").textContent=money(totalExpenses);
+ $("overallBalance").textContent=money(overall);$("savings").textContent=money(overall);
+ 
+ const cm=currentMonthData();
+ if(cm.mi===0){
+   $("incomeAlert").innerHTML=`<div class="warning">⚠️ No income registered for this month (${cm.y}-${pad(cm.m)}). Allocations are currently ₹0.</div>`;
+ } else {
+   $("incomeAlert").innerHTML="";
+ }
+
+ $("allocation").innerHTML=[
+  ["Daily Allocation",cm.daily,`Monthly income ÷ ${cm.days}`],
+  ["Disposable Daily",cm.disposableDaily,`After fixed commitments (${money(cm.fixedExpenses)})`],
+  ["Weekly Allocation",cm.weekly,"Daily allocation × 7"],
+  ["Monthly Allocation",cm.mi,"Total for the month"]
+ ].map(x=>`<div class="box"><div class="muted">${x[0]}</div><div class="value">${money(x[1])}</div><div class="muted">${x[2]}</div></div>`).join("");
+ 
+ renderBalances(cm); 
+ renderLedger();
+}
+
+function renderBalances(cm){
+ const s1=getPeriodStats(), daily=s1.cm.daily, weekly=s1.cm.weekly, monthly=s1.cm.mi;
+ const db=daily-s1.dailySpent, wb=weekly-s1.weeklySpent, mb=monthly-s1.monthlySpent;
+ const pct=(spent,limit)=>limit>0?Math.min(100,Math.max(0,spent/limit*100)):0;
+ const card=(title,tag,allocation,spent,balance,formula)=>`<div class="box ${balance<0?'over':balance>0?'under':'zero'}">
+   <div style="display:flex;justify-content:space-between;align-items:center"><h3>${title}</h3><span class="periodtag">${tag}</span></div>
+   <div class="row"><span>Allocation</span><b>${money(allocation)}</b></div>
+   <div class="row"><span>Expenses</span><b class="${spent>allocation?'red':''}">${money(spent)}</b></div>
+   <hr><div class="muted">${title.replace(' Balance','')} Balance</div>
+   <div class="balance ${balance<0?'red':'green'}">${balance<0?'Over by '+money(-balance):money(balance)}</div>
+   <div class="bar"><div class="fill" style="width:${pct(spent,allocation)}%"></div></div>
+   <p class="muted">${formula}</p>
+ </div>`;
+ $("balances").innerHTML=
+ card("📅 Daily Balance","Today",daily,s1.dailySpent,db,"Daily allocation − today's expenses.")+
+ card("📆 Weekly Balance","This Week",weekly,s1.weeklySpent,wb,"Weekly allocation − this week's expenses.")+
+ card("🗓 Monthly Balance","This Month",monthly,s1.monthlySpent,mb,"Monthly income allocation − this month's expenses.");
+}
+
+function renderLedger(){
+ const f=state.expenses.filter(x=>periodMatch(x.date,selectedPeriod)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+ const t=f.reduce((a,x)=>a+x.amount,0);$("periodTotal").textContent=money(t);
+ $("ledger").innerHTML=f.length?f.map(x=>`<div class="row">
+   <div><b>${esc(x.note||x.category)}</b>
+     <div class="muted">${x.date} · ${esc(x.category)}${x.subcategory?` · ${esc(x.subcategory)}`:""}${x.expenseType?` · ${esc(x.expenseType)}`:""}</div>
+   </div>
+   <div style="display:flex;align-items:center;gap:8px">
+     <span class="red">−${money(x.amount)}</span>
+     <div class="btn-group">
+       <button type="button" class="secondary" data-edit="${x.id}">✎</button>
+       <button type="button" class="secondary" data-delete="${x.id}">×</button>
+     </div>
+   </div>
+ </div>`).join(""):"<p class='muted'>No expenses in this period.</p>";
+ renderReports();
+}
+
+function renderReports(){
+ const now=new Date(), ym=monthKey(now.getFullYear(),now.getMonth()+1);
+ const monthExpenses=state.expenses.filter(x=>x.date.startsWith(ym));
+ const cats={};monthExpenses.forEach(x=>cats[x.category]=(cats[x.category]||0)+x.amount);
+ const catEntries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+ const maxCat=catEntries.length?catEntries[0][1]:0;
+ $("catChart").innerHTML=catEntries.length?catEntries.map(([c,v])=>`<div class="chartrow"><span>${esc(c)}</span><div class="chartbar"><div class="chartfill" style="width:${maxCat?Math.max(2,v/maxCat*100):0}%"></div></div><b>${money(v)}</b></div>`).join(""):"<div class='muted'>No expenses this month.</div>";
+
+ const months={};
+ state.expenses.forEach(x=>{const k=x.date.slice(0,7);months[k]=(months[k]||0)+x.amount});
+ const monthEntries=Object.entries(months).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+ const maxMonth=monthEntries.length?Math.max(...monthEntries.map(x=>x[1])):0;
+ $("monthChart").innerHTML=monthEntries.length?monthEntries.map(([m,v])=>`<div class="chartrow"><span>${m}</span><div class="chartbar"><div class="chartfill" style="width:${maxMonth?Math.max(2,v/maxMonth*100):0}%"></div></div><b>${money(v)}</b></div>`).join(""):"<div class='muted'>No expense history.</div>";
+
+ const total=monthExpenses.reduce((a,x)=>a+x.amount,0);
+ const fixed=monthExpenses.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
+ const variable=monthExpenses.filter(x=>x.expenseType!=="Fixed").reduce((a,x)=>a+x.amount,0);
+ const income=Number(state.income[ym]||0);
+ const rows=catEntries.map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
+ const subs={};monthExpenses.forEach(x=>{const k=(x.category||"Other")+" — "+(x.subcategory||"Other");subs[k]=(subs[k]||0)+x.amount});
+ const subRows=Object.entries(subs).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
+ $("pivotTable").innerHTML=`<h4>Category Summary</h4><table class="ptable"><thead><tr><th>Category</th><th>Amount</th><th>% of month</th></tr></thead><tbody>${rows||"<tr><td colspan='3'>No data</td></tr>"}</tbody><tfoot><tr><th>Total expenses</th><th>${money(total)}</th><th>${income?((total/income)*100).toFixed(1)+"% of income":"—"}</th></tr></tfoot></table>
+ <h4 style="margin-top:18px">Fixed vs Variable</h4><table class="ptable"><thead><tr><th>Expense Type</th><th>Amount</th><th>% of month</th></tr></thead><tbody><tr><td>Fixed expenses</td><td>${money(fixed)}</td><td>${total?((fixed/total)*100).toFixed(1)+"%":"0%"}</td></tr><tr><td>Variable expenses</td><td>${money(variable)}</td><td>${total?((variable/total)*100).toFixed(1)+"%":"0%"}</td></tr></tbody></table><h4 style="margin-top:18px">Subcategory Summary</h4><table class="ptable"><thead><tr><th>Category — Subcategory</th><th>Amount</th><th>% of month</th></tr></thead><tbody>${subRows||"<tr><td colspan='3'>No data</td></tr>"}</tbody></table>`;
+}
+
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+$("incomeForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  state.income[$("incomeMonth").value]=Number($("incomeAmount").value)||0;
+  save();
+  render();
+});
+
+$("setToday").addEventListener("click",()=>{ $("expenseDate").value=iso(new Date()); });
+
+$("expenseForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const a=Number($("expenseAmount").value);
+  if(!Number.isFinite(a)||a<=0)return;
+  const editId=$("editExpenseId").value;
+  if(editId){
+    const idx=state.expenses.findIndex(x=>x.id===Number(editId));
+    if(idx!==-1){
+      state.expenses[idx]={id:Number(editId),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,date:$("expenseDate").value,note:$("note").value.trim()};
+    }
+    resetExpenseForm();
+  } else {
+    state.expenses.push({id:Date.now(),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,date:$("expenseDate").value,note:$("note").value.trim()});
+    $("expenseAmount").value="";
+    $("note").value="";
+  }
+  save();
+  render();
+});
+
+function resetExpenseForm(){
+  $("editExpenseId").value="";
+  $("expenseAmount").value="";
+  $("note").value="";
+  $("formTitle").textContent="➕ Add Expense";
+  $("saveExpenseBtn").textContent="Add Expense";
+  $("cancelEditBtn").style.display="none";
+  $("expenseDate").value=iso(new Date());
+}
+
+$("cancelEditBtn").addEventListener("click",resetExpenseForm);
+
+$("tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button");
+  if(!b)return;
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  selectedPeriod=b.dataset.period;
+  renderLedger();
+});
+
+$("ledger").addEventListener("click",e=>{
+  const delBtn=e.target.closest("[data-delete]");
+  if(delBtn){
+    state.expenses=state.expenses.filter(x=>x.id!==Number(delBtn.dataset.delete));
+    save();
+    render();
+    return;
+  }
+  const editBtn=e.target.closest("[data-edit]");
+  if(editBtn){
+    const item=state.expenses.find(x=>x.id===Number(editBtn.dataset.edit));
+    if(!item)return;
+    $("editExpenseId").value=item.id;
+    $("expenseAmount").value=item.amount;
+    $("category").value=item.category;
+    populateSubcategories();
+    $("subcategory").value=item.subcategory||"";
+    $("expenseType").value=item.expenseType||"Variable";
+    $("expenseDate").value=item.date;
+    $("note").value=item.note||"";
+    $("formTitle").textContent="✎ Edit Expense";
+    $("saveExpenseBtn").textContent="Update Expense";
+    $("cancelEditBtn").style.display="inline-block";
+    window.scrollTo({top:$("expenseForm").offsetTop-20,behavior:"smooth"});
+  }
+});
+
+$("clear").onclick=()=>{if(confirm("Delete all income and expenses?")){state={expenses:[],income:{}};save();render()}};
+
+function downloadCSV(filename,rows){
+ const csv=rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+ a.download=filename;
+ a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+$("export").onclick=()=>{
+ const rows=[[
+ "Transaction ID","Date","Month","Type","Category","Subcategory","Expense Type","Note","Amount INR",
+ "Monthly Income INR","Days In Month","Daily Allocation INR","Weekly Allocation INR",
+ "Daily Expense INR","Daily Balance INR","Weekly Expense INR","Weekly Balance INR",
+ "Monthly Expense INR","Monthly Balance INR"
+ ]];
+
+ const months=new Set(Object.keys(state.income));
+ state.expenses.forEach(x=>months.add(x.date.slice(0,7)));
+
+ state.expenses.forEach(x=>{
+   const d=parseDate(x.date), y=d.getFullYear(), m=d.getMonth()+1, ym=monthKey(y,m);
+   const income=Number(state.income[ym]||0), days=new Date(y,m,0).getDate();
+   const daily=days?income/days:0, weekly=daily*7;
+   const dailyExpense=state.expenses.filter(e=>e.date===x.date).reduce((a,e)=>a+e.amount,0);
+   const weeklyExpense=state.expenses.filter(e=>periodMatchForDate(e.date,"week",d)).reduce((a,e)=>a+e.amount,0);
+   const monthlyExpense=state.expenses.filter(e=>e.date.startsWith(ym)).reduce((a,e)=>a+e.amount,0);
+   rows.push([x.id,x.date,ym,"Expense",x.category,x.subcategory||"",x.expenseType||"Variable",x.note||"",x.amount,income,days,daily,weekly,dailyExpense,daily-dailyExpense,weeklyExpense,weekly-weeklyExpense,monthlyExpense,income-monthlyExpense]);
+ });
+
+ [...months].sort().forEach(ym=>{
+   const [y,m]=ym.split("-").map(Number), income=Number(state.income[ym]||0);
+   if(!income)return;
+   const days=new Date(y,m,0).getDate(),daily=days?income/days:0,weekly=daily*7;
+   const monthlyExpense=state.expenses.filter(e=>e.date.startsWith(ym)).reduce((a,e)=>a+e.amount,0);
+   rows.push(["","",ym,"Income / Resource","Income","","","Monthly income resource",income,income,days,daily,weekly,"","","","",monthlyExpense,income-monthlyExpense]);
+ });
+
+ downloadCSV("finance_tracker_detailed.csv",rows);
+};
+
+$("exportSummary").onclick=()=>{
+ const rows=[
+   ["Month","Income INR","Total Expenses INR","Fixed Expenses INR","Variable Expenses INR","Monthly Balance INR","Daily Allocation INR","Weekly Allocation INR"]
+ ];
+ const months=new Set(Object.keys(state.income));
+ state.expenses.forEach(x=>months.add(x.date.slice(0,7)));
+
+ [...months].sort().forEach(ym=>{
+   const [y,m]=ym.split("-").map(Number), income=Number(state.income[ym]||0);
+   const ex=state.expenses.filter(e=>e.date.startsWith(ym));
+   const expenses=ex.reduce((a,x)=>a+x.amount,0);
+   const fixed=ex.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
+   const variable=expenses-fixed;
+   const days=new Date(y,m,0).getDate(), daily=days?income/days:0;
+   rows.push([ym,income,expenses,fixed,variable,income-expenses,daily.toFixed(2),(daily*7).toFixed(2)]);
+ });
+ downloadCSV("finance_tracker_monthly_summary.csv",rows);
+};
+
+$("backup").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}));a.download="finance-backup.json";a.click()};
+$("restore").onclick=()=>{const i=document.createElement("input");i.type="file";i.accept=".json,application/json";i.onchange=()=>{const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.expenses||!x.income)throw 0;state=x;save();render();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)};i.click()};
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+populateSubcategories();render();
+</script></body></html>
