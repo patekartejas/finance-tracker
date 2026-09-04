@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#166534"><meta name="description" content="₹ INR personal finance and budget tracker">
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg">
-<title>₹ Finance Tracker v12</title>
+<title>₹ Finance Tracker v13</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172018;background:#f5f7f5}
 *{box-sizing:border-box}body{margin:0}.wrap{max-width:980px;margin:auto;padding:14px}
@@ -28,7 +28,7 @@ button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4
 </style>
 </head>
 <body><main class="wrap">
-<h1>₹ Personal Finance Tracker v12</h1>
+<h1>₹ Personal Finance Tracker v13</h1>
 <p class="muted">Monthly income → automatic daily/weekly/monthly allocation → disposable daily budgeting & tracking.</p>
 
 <section class="grid stats">
@@ -41,7 +41,7 @@ button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4
 <section class="card">
 <h2>💰 Monthly Income Resource</h2>
 <form id="incomeForm">
-<label class="field">Monthly Income (₹)<input id="incomeAmount" type="number" min="0" step="0.01" required placeholder="28500"></label>
+<label class="field">Monthly Income (₹)<input id="incomeAmount" type="number" min="0" step="0.01" required placeholder="0"></label>
 <label class="field">Month<input id="incomeMonth" type="month" required></label>
 <button class="primary" type="submit">Save Monthly Income</button>
 </form>
@@ -52,7 +52,7 @@ button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4
 <h2 id="formTitle">➕ Add Expense</h2>
 <form id="expenseForm">
 <input type="hidden" id="editExpenseId" value="">
-<label class="field">Amount (₹)<input id="expenseAmount" type="number" min="0.01" step="0.01" required placeholder="500"></label>
+<label class="field">Amount (₹)<input id="expenseAmount" type="number" min="0.01" step="0.01" required placeholder="0"></label>
 <label class="field">Category<select id="category" required>
 <option value="Housing">Housing</option>
 <option value="Utilities">Utilities</option>
@@ -72,6 +72,22 @@ button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4
 </select></label>
 <label class="field">Subcategory<select id="subcategory"></select></label>
 <label class="field">Expense Type<select id="expenseType"><option value="Variable">Variable</option><option value="Fixed">Fixed</option></select></label>
+<label class="field">Payment Mode<select id="paymentMode">
+<option value="Cash">Cash</option>
+<option value="UPI">UPI</option>
+<option value="Debit Card">Debit Card</option>
+<option value="Credit Card">Credit Card</option>
+<option value="Savings Account">Savings Account / Bank Transfer</option>
+<option value="Other">Other</option>
+</select></label>
+<label class="field">Expense Scope<select id="scope">
+<option value="Personal">Personal</option>
+<option value="Common">Common / Shared</option>
+</select></label>
+<label class="field">For (Person)
+  <input id="person" list="personList" placeholder="Self, Mom, Dad...">
+  <datalist id="personList"><option value="Self"><option value="Spouse"><option value="Mom"><option value="Dad"><option value="Child"><option value="Family"></datalist>
+</label>
 <label class="field">Date
   <div style="display:flex;gap:4px">
     <input id="expenseDate" type="date" style="flex:1" required>
@@ -104,6 +120,8 @@ button.secondary{background:#f3f4f6;color:#1f2937;border-color:#d1d5db;padding:4
 <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
   <div class="box"><h3>Expense by Category</h3><div id="catChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
   <div class="box"><h3>Monthly Overview</h3><div id="monthChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
+  <div class="box"><h3>Expense by Payment Mode</h3><div id="modeChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
+  <div class="box"><h3>Expense by Person</h3><div id="personChart" style="display:flex;flex-direction:column;gap:8px"></div></div>
 </div>
 <div class="box" style="margin-top:12px"><h3>Pivot-style Summary</h3><div id="pivotTable"></div></div>
 </section>
@@ -254,6 +272,7 @@ function renderLedger(){
  $("ledger").innerHTML=f.length?f.map(x=>`<div class="row">
    <div><b>${esc(x.note||x.category)}</b>
      <div class="muted">${x.date} · ${esc(x.category)}${x.subcategory?` · ${esc(x.subcategory)}`:""}${x.expenseType?` · ${esc(x.expenseType)}`:""}</div>
+     <div class="muted">${esc(x.paymentMode||"Cash")} · ${esc(x.scope||"Personal")}${x.person?` · For: ${esc(x.person)}`:""}</div>
    </div>
    <div style="display:flex;align-items:center;gap:8px">
      <span class="red">−${money(x.amount)}</span>
@@ -280,15 +299,29 @@ function renderReports(){
  const maxMonth=monthEntries.length?Math.max(...monthEntries.map(x=>x[1])):0;
  $("monthChart").innerHTML=monthEntries.length?monthEntries.map(([m,v])=>`<div class="chartrow"><span>${m}</span><div class="chartbar"><div class="chartfill" style="width:${maxMonth?Math.max(2,v/maxMonth*100):0}%"></div></div><b>${money(v)}</b></div>`).join(""):"<div class='muted'>No expense history.</div>";
 
+ const modes={};monthExpenses.forEach(x=>{const k=x.paymentMode||"Cash";modes[k]=(modes[k]||0)+x.amount});
+ const modeEntries=Object.entries(modes).sort((a,b)=>b[1]-a[1]);
+ const maxMode=modeEntries.length?modeEntries[0][1]:0;
+ $("modeChart").innerHTML=modeEntries.length?modeEntries.map(([m,v])=>`<div class="chartrow"><span>${esc(m)}</span><div class="chartbar"><div class="chartfill" style="width:${maxMode?Math.max(2,v/maxMode*100):0}%"></div></div><b>${money(v)}</b></div>`).join(""):"<div class='muted'>No expenses this month.</div>";
+
+ const persons={};monthExpenses.forEach(x=>{const k=x.person||"Not specified";persons[k]=(persons[k]||0)+x.amount});
+ const personEntries=Object.entries(persons).sort((a,b)=>b[1]-a[1]);
+ const maxPerson=personEntries.length?personEntries[0][1]:0;
+ $("personChart").innerHTML=personEntries.length?personEntries.map(([p,v])=>`<div class="chartrow"><span>${esc(p)}</span><div class="chartbar"><div class="chartfill" style="width:${maxPerson?Math.max(2,v/maxPerson*100):0}%"></div></div><b>${money(v)}</b></div>`).join(""):"<div class='muted'>No expenses this month.</div>";
+
  const total=monthExpenses.reduce((a,x)=>a+x.amount,0);
  const fixed=monthExpenses.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
  const variable=monthExpenses.filter(x=>x.expenseType!=="Fixed").reduce((a,x)=>a+x.amount,0);
+ const common=monthExpenses.filter(x=>x.scope==="Common").reduce((a,x)=>a+x.amount,0);
+ const personal=total-common;
  const income=Number(state.income[ym]||0);
  const rows=catEntries.map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
  const subs={};monthExpenses.forEach(x=>{const k=(x.category||"Other")+" — "+(x.subcategory||"Other");subs[k]=(subs[k]||0)+x.amount});
  const subRows=Object.entries(subs).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
  $("pivotTable").innerHTML=`<h4>Category Summary</h4><table class="ptable"><thead><tr><th>Category</th><th>Amount</th><th>% of month</th></tr></thead><tbody>${rows||"<tr><td colspan='3'>No data</td></tr>"}</tbody><tfoot><tr><th>Total expenses</th><th>${money(total)}</th><th>${income?((total/income)*100).toFixed(1)+"% of income":"—"}</th></tr></tfoot></table>
- <h4 style="margin-top:18px">Fixed vs Variable</h4><table class="ptable"><thead><tr><th>Expense Type</th><th>Amount</th><th>% of month</th></tr></thead><tbody><tr><td>Fixed expenses</td><td>${money(fixed)}</td><td>${total?((fixed/total)*100).toFixed(1)+"%":"0%"}</td></tr><tr><td>Variable expenses</td><td>${money(variable)}</td><td>${total?((variable/total)*100).toFixed(1)+"%":"0%"}</td></tr></tbody></table><h4 style="margin-top:18px">Subcategory Summary</h4><table class="ptable"><thead><tr><th>Category — Subcategory</th><th>Amount</th><th>% of month</th></tr></thead><tbody>${subRows||"<tr><td colspan='3'>No data</td></tr>"}</tbody></table>`;
+ <h4 style="margin-top:18px">Fixed vs Variable</h4><table class="ptable"><thead><tr><th>Expense Type</th><th>Amount</th><th>% of month</th></tr></thead><tbody><tr><td>Fixed expenses</td><td>${money(fixed)}</td><td>${total?((fixed/total)*100).toFixed(1)+"%":"0%"}</td></tr><tr><td>Variable expenses</td><td>${money(variable)}</td><td>${total?((variable/total)*100).toFixed(1)+"%":"0%"}</td></tr></tbody></table>
+ <h4 style="margin-top:18px">Common vs Personal</h4><table class="ptable"><thead><tr><th>Scope</th><th>Amount</th><th>% of month</th></tr></thead><tbody><tr><td>Common / Shared</td><td>${money(common)}</td><td>${total?((common/total)*100).toFixed(1)+"%":"0%"}</td></tr><tr><td>Personal</td><td>${money(personal)}</td><td>${total?((personal/total)*100).toFixed(1)+"%":"0%"}</td></tr></tbody></table>
+ <h4 style="margin-top:18px">Subcategory Summary</h4><table class="ptable"><thead><tr><th>Category — Subcategory</th><th>Amount</th><th>% of month</th></tr></thead><tbody>${subRows||"<tr><td colspan='3'>No data</td></tr>"}</tbody></table>`;
 }
 
 function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -310,11 +343,11 @@ $("expenseForm").addEventListener("submit",e=>{
   if(editId){
     const idx=state.expenses.findIndex(x=>x.id===Number(editId));
     if(idx!==-1){
-      state.expenses[idx]={id:Number(editId),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,date:$("expenseDate").value,note:$("note").value.trim()};
+      state.expenses[idx]={id:Number(editId),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,paymentMode:$("paymentMode").value,scope:$("scope").value,person:$("person").value.trim(),date:$("expenseDate").value,note:$("note").value.trim()};
     }
     resetExpenseForm();
   } else {
-    state.expenses.push({id:Date.now(),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,date:$("expenseDate").value,note:$("note").value.trim()});
+    state.expenses.push({id:nextId(),amount:a,category:$("category").value,subcategory:$("subcategory").value,expenseType:$("expenseType").value,paymentMode:$("paymentMode").value,scope:$("scope").value,person:$("person").value.trim(),date:$("expenseDate").value,note:$("note").value.trim()});
     $("expenseAmount").value="";
     $("note").value="";
   }
@@ -322,10 +355,20 @@ $("expenseForm").addEventListener("submit",e=>{
   render();
 });
 
+function nextId(){
+  // Date.now() collisions are possible if two expenses are ever created in
+  // the same millisecond; bump a counter to guarantee uniqueness.
+  state._lastId = Math.max(Date.now(), (state._lastId||0)+1);
+  return state._lastId;
+}
+
 function resetExpenseForm(){
   $("editExpenseId").value="";
   $("expenseAmount").value="";
   $("note").value="";
+  $("paymentMode").value="Cash";
+  $("scope").value="Personal";
+  $("person").value="";
   $("formTitle").textContent="➕ Add Expense";
   $("saveExpenseBtn").textContent="Add Expense";
   $("cancelEditBtn").style.display="none";
@@ -346,6 +389,7 @@ $("tabs").addEventListener("click",e=>{
 $("ledger").addEventListener("click",e=>{
   const delBtn=e.target.closest("[data-delete]");
   if(delBtn){
+    if(!confirm("Delete this expense? This can't be undone.")) return;
     state.expenses=state.expenses.filter(x=>x.id!==Number(delBtn.dataset.delete));
     save();
     render();
@@ -361,6 +405,9 @@ $("ledger").addEventListener("click",e=>{
     populateSubcategories();
     $("subcategory").value=item.subcategory||"";
     $("expenseType").value=item.expenseType||"Variable";
+    $("paymentMode").value=item.paymentMode||"Cash";
+    $("scope").value=item.scope||"Personal";
+    $("person").value=item.person||"";
     $("expenseDate").value=item.date;
     $("note").value=item.note||"";
     $("formTitle").textContent="✎ Edit Expense";
@@ -383,7 +430,7 @@ function downloadCSV(filename,rows){
 
 $("export").onclick=()=>{
  const rows=[[
- "Transaction ID","Date","Month","Type","Category","Subcategory","Expense Type","Note","Amount INR",
+ "Transaction ID","Date","Month","Type","Category","Subcategory","Expense Type","Payment Mode","Scope","Person","Note","Amount INR",
  "Monthly Income INR","Days In Month","Daily Allocation INR","Weekly Allocation INR",
  "Daily Expense INR","Daily Balance INR","Weekly Expense INR","Weekly Balance INR",
  "Monthly Expense INR","Monthly Balance INR"
@@ -399,7 +446,7 @@ $("export").onclick=()=>{
    const dailyExpense=state.expenses.filter(e=>e.date===x.date).reduce((a,e)=>a+e.amount,0);
    const weeklyExpense=state.expenses.filter(e=>periodMatchForDate(e.date,"week",d)).reduce((a,e)=>a+e.amount,0);
    const monthlyExpense=state.expenses.filter(e=>e.date.startsWith(ym)).reduce((a,e)=>a+e.amount,0);
-   rows.push([x.id,x.date,ym,"Expense",x.category,x.subcategory||"",x.expenseType||"Variable",x.note||"",x.amount,income,days,daily,weekly,dailyExpense,daily-dailyExpense,weeklyExpense,weekly-weeklyExpense,monthlyExpense,income-monthlyExpense]);
+   rows.push([x.id,x.date,ym,"Expense",x.category,x.subcategory||"",x.expenseType||"Variable",x.paymentMode||"Cash",x.scope||"Personal",x.person||"",x.note||"",x.amount,income,days,daily,weekly,dailyExpense,daily-dailyExpense,weeklyExpense,weekly-weeklyExpense,monthlyExpense,income-monthlyExpense]);
  });
 
  [...months].sort().forEach(ym=>{
@@ -407,7 +454,7 @@ $("export").onclick=()=>{
    if(!income)return;
    const days=new Date(y,m,0).getDate(),daily=days?income/days:0,weekly=daily*7;
    const monthlyExpense=state.expenses.filter(e=>e.date.startsWith(ym)).reduce((a,e)=>a+e.amount,0);
-   rows.push(["","",ym,"Income / Resource","Income","","","Monthly income resource",income,income,days,daily,weekly,"","","","",monthlyExpense,income-monthlyExpense]);
+   rows.push(["","",ym,"Income / Resource","Income","","","","","","Monthly income resource",income,income,days,daily,weekly,"","","","",monthlyExpense,income-monthlyExpense]);
  });
 
  downloadCSV("finance_tracker_detailed.csv",rows);
@@ -415,7 +462,7 @@ $("export").onclick=()=>{
 
 $("exportSummary").onclick=()=>{
  const rows=[
-   ["Month","Income INR","Total Expenses INR","Fixed Expenses INR","Variable Expenses INR","Monthly Balance INR","Daily Allocation INR","Weekly Allocation INR"]
+   ["Month","Income INR","Total Expenses INR","Fixed Expenses INR","Variable Expenses INR","Common Expenses INR","Personal Expenses INR","Monthly Balance INR","Daily Allocation INR","Weekly Allocation INR"]
  ];
  const months=new Set(Object.keys(state.income));
  state.expenses.forEach(x=>months.add(x.date.slice(0,7)));
@@ -426,8 +473,10 @@ $("exportSummary").onclick=()=>{
    const expenses=ex.reduce((a,x)=>a+x.amount,0);
    const fixed=ex.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
    const variable=expenses-fixed;
+   const common=ex.filter(x=>x.scope==="Common").reduce((a,x)=>a+x.amount,0);
+   const personal=expenses-common;
    const days=new Date(y,m,0).getDate(), daily=days?income/days:0;
-   rows.push([ym,income,expenses,fixed,variable,income-expenses,daily.toFixed(2),(daily*7).toFixed(2)]);
+   rows.push([ym,income,expenses,fixed,variable,common,personal,income-expenses,daily.toFixed(2),(daily*7).toFixed(2)]);
  });
  downloadCSV("finance_tracker_monthly_summary.csv",rows);
 };
