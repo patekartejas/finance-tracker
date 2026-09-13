@@ -597,6 +597,7 @@ function parseBankSMS(sms) {
   let amount = "";
   let merchant = "";
   let mode = "UPI"; // Default assumption for most Indian quick-transactions
+  let date = "";
 
   // 1. Extract Amount
   const amountMatch = sms.match(/(?:Rs\.?|INR|₹|debited by)\s*([\d,]+(?:\.\d{1,2})?)/i);
@@ -620,7 +621,34 @@ function parseBankSMS(sms) {
     mode = "Debit Card";
   }
 
-  return { amount, merchant, mode };
+  // 4. Extract Date (Catches DD-MM-YY, DD/MM/YYYY, DD-MMM-YY, or "on DD MMM")
+  const dateMatch = sms.match(/\b(\d{2})[-/]([a-zA-Z]{3}|\d{2})[-/](\d{2,4})\b/i) || 
+                    sms.match(/(?:on|date)\s*:?\s*(\d{2})[-/ ]([a-zA-Z]{3}|\d{2})(?:[-/ ](\d{2,4}))?\b/i);
+  
+  if (dateMatch) {
+    const day = dateMatch[1];
+    const monthStr = dateMatch[2].toLowerCase();
+    let year = dateMatch[3];
+
+    // If no year is found in the SMS, assume the current year
+    if (!year) {
+      year = new Date().getFullYear().toString();
+    } else if (year.length === 2) {
+      year = "20" + year; // Convert "26" to "2026"
+    }
+
+    // Convert month abbreviations (Jan, Feb) to numbers, or parse standard numbers
+    let monthNum = isNaN(monthStr) 
+      ? {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12}[monthStr.substring(0,3)]
+      : parseInt(monthStr, 10);
+
+    // If a valid date was found, format it for the HTML date picker (YYYY-MM-DD)
+    if (monthNum && monthNum <= 12 && parseInt(day) <= 31) {
+      date = `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return { amount, merchant, mode, date };
 }
 
 // Listen for paste or typing in the new textarea
@@ -642,6 +670,11 @@ $("smsInput").addEventListener("input", (e) => {
     const modeSelect = $("paymentMode");
     const exists = Array.from(modeSelect.options).some(opt => opt.value === parsed.mode);
     if (exists) modeSelect.value = parsed.mode;
+  }
+  
+  // Update the date if found, otherwise leave it as today
+  if (parsed.date) {
+    $("expenseDate").value = parsed.date;
   }
 });
 
