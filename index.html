@@ -110,6 +110,19 @@ button.secondary{background:#fff;color:#404040;border-color:#dcdcdc;padding:4px 
 <div id="allocation" class="grid alloc" style="margin-top:12px"></div>
 </section>
 
+<section class="card" id="sectionExtra">
+<h2>Extra Income</h2>
+<p class="muted">One-off income (bonus, freelance, gifts, refunds). It is added to that month's income, so your daily, weekly and monthly limits go up.</p>
+<form id="extraForm">
+<label class="field">Amount (₹)<input id="extraAmount" type="number" min="0.01" step="0.01" required placeholder="5000"></label>
+<label class="field">Source<select id="extraSource"><option>Bonus</option><option>Freelance</option><option>Gift</option><option>Interest / Dividends</option><option>Refund</option><option>Other</option></select></label>
+<label class="field">Date<input id="extraDate" type="date" required></label>
+<label class="field">Note<input id="extraNote" maxlength="100" placeholder="Diwali bonus"></label>
+<button class="primary" type="submit">Add Extra Income</button>
+</form>
+<div id="extraList" style="margin-top:12px"></div>
+</section>
+
 <section class="card" id="sectionExpense">
 <h2 id="formTitle">Add Expense</h2>
 <div style="margin-bottom: 16px;">
@@ -221,6 +234,7 @@ button.secondary{background:#fff;color:#404040;border-color:#dcdcdc;padding:4px 
 <script>
 const KEY="inr-finance-v12";
 let state=JSON.parse(localStorage.getItem(KEY)||'{"expenses":[],"income":{}}');
+state.extraIncome=state.extraIncome||[];
 let selectedPeriod="today";
 const $=id=>document.getElementById(id);
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
@@ -283,7 +297,7 @@ function periodMatchForDate(dateStr, period, refDate) {
 }
 
 function expenseSum(p){return state.expenses.filter(x=>periodMatch(x.date,p)).reduce((a,x)=>a+x.amount,0)}
-function monthIncome(y,m){return Number(state.income[monthKey(y,m)]||0)}
+function monthIncome(y,m){return incomeFor(monthKey(y,m))}
 
 function currentMonthData(){
  const n=new Date(), y=n.getFullYear(), m=n.getMonth()+1, mi=monthIncome(y,m);
@@ -305,7 +319,7 @@ function getPeriodStats(){
 }
 
 function render(){
-  const totalIncome=Object.values(state.income).reduce((a,x)=>a+Number(x||0),0);
+  const totalIncome=Object.values(state.income).reduce((a,x)=>a+Number(x||0),0)+state.extraIncome.reduce((a,x)=>a+x.amount,0);
   const totalExpenses=state.expenses.reduce((a,x)=>a+x.amount,0);
   const overall=totalIncome-totalExpenses;
   
@@ -335,6 +349,7 @@ function render(){
  
  renderBalances(cm); 
  renderLedger();
+ renderExtra();
 }
 
 function renderBalances(cm){
@@ -405,7 +420,7 @@ function renderReports(){
  const variable=monthExpenses.filter(x=>x.expenseType!=="Fixed").reduce((a,x)=>a+x.amount,0);
  const common=monthExpenses.filter(x=>x.scope==="Common").reduce((a,x)=>a+x.amount,0);
  const personal=total-common;
- const income=Number(state.income[ym]||0);
+ const income=incomeFor(ym);
  const rows=catEntries.map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
  const subs={};monthExpenses.forEach(x=>{const k=(x.category||"Other")+" — "+(x.subcategory||"Other");subs[k]=(subs[k]||0)+x.amount});
  const subRows=Object.entries(subs).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td>${money(v)}</td><td>${total?((v/total)*100).toFixed(1)+"%":"0%"}</td></tr>`).join("");
@@ -523,7 +538,7 @@ $("ledger").addEventListener("click",e=>{
   }
 });
 
-$("clear").onclick=()=>{if(confirm("Delete all income and expenses?")){state={expenses:[],income:{}};save();render()}};
+$("clear").onclick=()=>{if(confirm("Delete all income and expenses?")){state={expenses:[],income:{},extraIncome:[]};save();render()}};
 
 function downloadCSV(filename,rows){
  const csv=rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
@@ -544,10 +559,11 @@ $("export").onclick=()=>{
 
  const months=new Set(Object.keys(state.income));
  state.expenses.forEach(x=>months.add(x.date.slice(0,7)));
+state.extraIncome.forEach(x=>months.add(x.date.slice(0,7)));
 
  state.expenses.forEach(x=>{
    const d=parseDate(x.date), y=d.getFullYear(), m=d.getMonth()+1, ym=monthKey(y,m);
-   const income=Number(state.income[ym]||0), days=new Date(y,m,0).getDate();
+   const income=incomeFor(ym), days=new Date(y,m,0).getDate();
    const daily=days?income/days:0, weekly=daily*7;
    const dailyExpense=state.expenses.filter(e=>e.date===x.date).reduce((a,e)=>a+e.amount,0);
    const weeklyExpense=state.expenses.filter(e=>periodMatchForDate(e.date,"week",d)).reduce((a,e)=>a+e.amount,0);
@@ -556,13 +572,14 @@ $("export").onclick=()=>{
  });
 
  [...months].sort().forEach(ym=>{
-   const [y,m]=ym.split("-").map(Number), income=Number(state.income[ym]||0);
+   const [y,m]=ym.split("-").map(Number), income=incomeFor(ym);
    if(!income)return;
    const days=new Date(y,m,0).getDate(),daily=days?income/days:0,weekly=daily*7;
    const monthlyExpense=state.expenses.filter(e=>e.date.startsWith(ym)).reduce((a,e)=>a+e.amount,0);
    rows.push(["","",ym,"Income / Resource","Income","","","","","","Monthly income resource",income,income,days,daily,weekly,"","","","",monthlyExpense,income-monthlyExpense]);
  });
 
+ state.extraIncome.forEach(x=>rows.push([x.id,x.date,x.date.slice(0,7),"Extra Income",x.source,"","","","","",x.note||"",x.amount,...Array(10).fill("")]));
  downloadCSV("finance_tracker_detailed.csv",rows);
 };
 
@@ -572,9 +589,10 @@ $("exportSummary").onclick=()=>{
  ];
  const months=new Set(Object.keys(state.income));
  state.expenses.forEach(x=>months.add(x.date.slice(0,7)));
+state.extraIncome.forEach(x=>months.add(x.date.slice(0,7)));
 
  [...months].sort().forEach(ym=>{
-   const [y,m]=ym.split("-").map(Number), income=Number(state.income[ym]||0);
+   const [y,m]=ym.split("-").map(Number), income=incomeFor(ym);
    const ex=state.expenses.filter(e=>e.date.startsWith(ym));
    const expenses=ex.reduce((a,x)=>a+x.amount,0);
    const fixed=ex.filter(x=>x.expenseType==="Fixed").reduce((a,x)=>a+x.amount,0);
@@ -588,7 +606,7 @@ $("exportSummary").onclick=()=>{
 };
 
 $("backup").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}));a.download="finance-backup.json";a.click()};
-$("restore").onclick=()=>{const i=document.createElement("input");i.type="file";i.accept=".json,application/json";i.onchange=()=>{const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.expenses||!x.income)throw 0;state=x;save();render();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)};i.click()};
+$("restore").onclick=()=>{const i=document.createElement("input");i.type="file";i.accept=".json,application/json";i.onchange=()=>{const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.expenses||!x.income)throw 0;state=x;state.extraIncome=state.extraIncome||[];save();render();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)};i.click()};
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 
 
@@ -749,12 +767,37 @@ setInterval(checkReminder,5*60*1000);
 updateReminderBtn();
 checkReminder();
 
+// --- Extra Income ---
+const extraSum=ym=>state.extraIncome.filter(x=>x.date.startsWith(ym)).reduce((a,x)=>a+x.amount,0);
+const incomeFor=ym=>Number(state.income[ym]||0)+extraSum(ym);
+$("extraDate").value=iso(new Date());
+$("extraForm").addEventListener("submit",e=>{
+e.preventDefault();
+const a=Number($("extraAmount").value);
+if(!Number.isFinite(a)||a<=0)return;
+state.extraIncome.push({id:nextId(),amount:a,source:$("extraSource").value,date:$("extraDate").value,note:$("extraNote").value.trim()});
+$("extraAmount").value="";$("extraNote").value="";
+save();render();
+});
+$("extraList").addEventListener("click",e=>{
+const b=e.target.closest("[data-xdel]");
+if(!b||!confirm("Delete this extra income entry?"))return;
+state.extraIncome=state.extraIncome.filter(x=>x.id!==Number(b.dataset.xdel));
+save();render();
+});
+function renderExtra(){
+const ym=iso(new Date()).slice(0,7);
+const f=state.extraIncome.filter(x=>x.date.startsWith(ym)).sort((a,b)=>b.date.localeCompare(a.date));
+$("extraList").innerHTML=f.length?f.map(x=>`<div class="row"><div style="min-width:0;overflow-wrap:anywhere"><b>${esc(x.note||x.source)}</b><div class="muted">${x.date} · ${esc(x.source)}</div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="green">+${money(x.amount)}</span><button type="button" class="secondary" data-xdel="${x.id}">×</button></div></div>`).join(""):"<p class='muted'>No extra income this month.</p>";
+}
+
 populateSubcategories();render();
 
 const GUIDE_STEPS=[
  {target:null,title:"Welcome",body:"This is a simple, offline personal finance tracker. Let's walk through each part of the screen — takes under a minute."},
  {target:"sectionIncome",title:"1. Set your monthly income",body:"Enter your income for the month here. The app automatically works out your daily and weekly allocation."},
- {target:"sectionExpense",title:"2. Log every expense",body:"Use this form for each purchase — pick a category, payment mode (Cash/UPI/Card), whether it's Personal or Common, and who it's for."},
+ {target:"sectionExtra",title:"Add extra income",body:"Got a bonus, freelance payment or refund? Log it here and it is added to that month's income."},
+{target:"sectionExpense",title:"2. Log every expense",body:"Use this form for each purchase — pick a category, payment mode (Cash/UPI/Card), whether it's Personal or Common, and who it's for."},
  {target:"sectionBalances",title:"3. Track your balances",body:"This shows how much you have left today, this week, and this month, after committed fixed expenses."},
  {target:"sectionLedger",title:"4. Review the ledger",body:"Switch between Daily/Weekly/Monthly/Yearly, and tap \"Show Details\" to see individual expenses for that period."},
  {target:"sectionReports",title:"5. Check your reports",body:"See breakdowns by category, payment mode, and person, plus a pivot-style summary table."},
