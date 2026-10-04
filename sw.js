@@ -1,4 +1,4 @@
-const C = "finance-v13";
+const C = "finance-v14"; // bump this number whenever you change any file
 const A = [
   "./",
   "./index.html",
@@ -9,27 +9,36 @@ const A = [
 
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(C).then(c => c.addAll(A)).then(() => self.skipWaiting())
+    caches.open(C)
+      // cache:"reload" skips the browser's HTTP cache so we store the fresh files
+      .then(c => c.addAll(A.map(u => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", e => {
   e.waitUntil(
-    caches.keys().then(keys => 
+    caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== C).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
+// Network first: always try to get the latest file, fall back to the
+// saved copy only when offline.
 self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        const copy = response.clone();
-        caches.open(C).then(cache => cache.put(e.request, copy));
+    fetch(e.request)
+      .then(response => {
+        if (response && response.ok && new URL(e.request.url).origin === location.origin) {
+          const copy = response.clone();
+          caches.open(C).then(cache => cache.put(e.request, copy));
+        }
         return response;
-      }).catch(() => caches.match("./index.html"));
-    })
+      })
+      .catch(() =>
+        caches.match(e.request).then(cached => cached || caches.match("./index.html"))
+      )
   );
 });
